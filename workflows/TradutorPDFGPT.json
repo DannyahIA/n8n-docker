@@ -1,0 +1,146 @@
+{
+  "name": "PDF to TXT Translator",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "pdf-upload",
+        "method": "POST",
+        "responseMode": "lastNode"
+      },
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "pdf-upload-webhook"
+    },
+    {
+      "parameters": {
+        "filePath": "=/files/{{$json[\"body\"][\"fileName\"]}}",
+        "binaryPropertyName": "data"
+      },
+      "id": "read-file-1",
+      "name": "Read Binary File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "options": {},
+        "binaryPropertyName": "data",
+        "mode": "text"
+      },
+      "id": "pdf-extract-1",
+      "name": "PDF Extract Text",
+      "type": "n8n-nodes-base.pdfExtract",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const text = $json[\"text\"];\nconst blockSize = 3000;\nlet blocks = [];\nfor (let i = 0; i < text.length; i += blockSize) {\n  blocks.push({ json: { text: text.slice(i, i + blockSize) } });\n}\nreturn blocks;"
+      },
+      "id": "code-1",
+      "name": "Split Text",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-3.5-turbo",
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Translate the following text to Brazilian Portuguese:\n{{$json[\"text\"]}}"
+          }
+        ]
+      },
+      "id": "openai-1",
+      "name": "GPT-3.5 Translate",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "let fullText = items.map(i => i.json.translatedText).join(' ');\nreturn [{ json: { fullText } }];"
+      },
+      "id": "code-2",
+      "name": "Combine Translations",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "fileName": "/files/traduzido.txt",
+        "binaryData": false,
+        "dataPropertyName": "fullText"
+      },
+      "id": "write-file-1",
+      "name": "Write TXT File",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "responseCode": 200,
+        "responseMode": "lastNode",
+        "responseData": "file",
+        "options": {}
+      },
+      "id": "respond-webhook-1",
+      "name": "Respond Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [1650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Read Binary File", "type": "main", "index": 0}]]
+    },
+    "Read Binary File": {
+      "main": [[{"node": "PDF Extract Text", "type": "main", "index": 0}]]
+    },
+    "PDF Extract Text": {
+      "main": [[{"node": "Split Text", "type": "main", "index": 0}]]
+    },
+    "Split Text": {
+      "main": [[{"node": "GPT-3.5 Translate", "type": "main", "index": 0}]]
+    },
+    "GPT-3.5 Translate": {
+      "main": [[{"node": "Combine Translations", "type": "main", "index": 0}]]
+    },
+    "Combine Translations": {
+      "main": [[{"node": "Write TXT File", "type": "main", "index": 0}]]
+    },
+    "Write TXT File": {
+      "main": [[{"node": "Respond Webhook", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-08T00:00:00.000Z",
+  "versionId": "tradutor-pdf-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
